@@ -2,6 +2,8 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { supabase } from '../lib/supabase'
 import Swal from 'sweetalert2'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 // --- ESTADOS ---
 const movimientos = ref([])
@@ -9,6 +11,14 @@ const balanceTotal = ref(0)
 const loading = ref(true)
 const isSubmitting = ref(false)
 const showModal = ref(false)
+const showReportModal = ref(false)
+
+// Estados para reporte
+const reportRange = ref({
+  start: new Date().toISOString().split('T')[0],
+  end: new Date().toISOString().split('T')[0]
+})
+const isGenerating = ref(false)
 
 // Datos de sesión
 const activeUserRol = ref(localStorage.getItem('userRol') || 'JUGADOR')
@@ -141,6 +151,107 @@ const resetForm = () => {
   nuevoMovimiento.value = { monto: '', motivo: '', tipo: 'Ingreso' }
 }
 
+const generarReportePDF = async () => {
+  if (!reportRange.value.start || !reportRange.value.end) return
+  
+  isGenerating.value = true
+  try {
+    const { data: movs, error } = await supabase.from('movimientos')
+      .select(`*, perfiles:registrado_por (nombre_completo)`)
+      .gte('fecha_registro', `${reportRange.value.start}T00:00:00`)
+      .lte('fecha_registro', `${reportRange.value.end}T23:59:59`)
+      .order('fecha_registro', { ascending: true })
+
+    if (error) throw error
+    if (!movs || movs.length === 0) {
+      throw new Error('No hay movimientos en el rango de fechas seleccionado.')
+    }
+
+    // Configuración PDF profesional
+    const doc = new jsPDF()
+    const primaryColor = [16, 185, 129] // Emerald 500
+
+    // Header
+    doc.setFillColor(2, 6, 23) // Slate 950
+    doc.rect(0, 0, 210, 40, 'F')
+    
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(22)
+    doc.setFont('helvetica', 'bold')
+    doc.text('F.C. PORTILLO', 15, 20)
+    
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.text('SISTEMA DE GESTIÓN FINANCIERA DIGITAL', 15, 28)
+    
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2])
+    doc.setFontSize(14)
+    doc.text('REPORTE DE MOVIMIENTOS', 210 - 15, 20, { align: 'right' })
+    
+    doc.setTextColor(200, 200, 200)
+    doc.setFontSize(9)
+    doc.text(`Periodo: ${reportRange.value.start} al ${reportRange.value.end}`, 210 - 15, 28, { align: 'right' })
+
+    // Tabla de Movimientos
+    const tableData = movs.map(m => [
+      new Date(m.fecha_registro).toLocaleDateString('es-PE'),
+      m.motivo,
+      m.tipo.toUpperCase(),
+      `S/ ${parseFloat(m.monto).toFixed(2)}`
+    ])
+
+    autoTable(doc, {
+      startY: 50,
+      head: [['FECHA', 'DESCRIPCIÓN', 'TIPO', 'MONTO']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold' },
+      styles: { fontSize: 9, cellPadding: 4 },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 30, halign: 'center' },
+        3: { cellWidth: 35, halign: 'right', fontStyle: 'bold' }
+      }
+    })
+
+    // Totales
+    const finalY = (doc).lastAutoTable.finalY + 10
+    const totalIngresos = movs.filter(m => m.tipo === 'Ingreso').reduce((acc, curr) => acc + Number(curr.monto), 0)
+    const totalEgresos = movs.filter(m => m.tipo === 'Egreso').reduce((acc, curr) => acc + Number(curr.monto), 0)
+    const saldoPeriodo = totalIngresos - totalEgresos
+
+    doc.setFontSize(10)
+    doc.setTextColor(100, 100, 100)
+    doc.text(`Total Ingresos: S/ ${totalIngresos.toFixed(2)}`, 210 - 15, finalY, { align: 'right' })
+    doc.text(`Total Egresos: S/ ${totalEgresos.toFixed(2)}`, 210 - 15, finalY + 6, { align: 'right' })
+    
+    doc.setFontSize(12)
+    doc.setTextColor(0, 0, 0)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`SALDO DEL PERIODO: S/ ${saldoPeriodo.toFixed(2)}`, 210 - 15, finalY + 15, { align: 'right' })
+
+    // Footer
+    doc.setFontSize(8)
+    doc.setTextColor(150, 150, 150)
+    doc.text('Generado automáticamente por la plataforma FC Portillo', 105, 285, { align: 'center' })
+
+    doc.save(`Reporte_Portillo_${reportRange.value.start}_${reportRange.value.end}.pdf`)
+    showReportModal.value = false
+
+    Swal.fire({
+      title: 'PDF GENERADO',
+      text: 'Tu reporte profesional está listo para imprimir o compartir.',
+      icon: 'success', background: '#020617', color: '#fff'
+    })
+
+  } catch (err) {
+    Swal.fire({ title: 'Error', text: err.message, icon: 'error', background: '#020617', color: '#fff' })
+  } finally {
+    isGenerating.value = false
+  }
+}
+
 const formatFecha = (f) => new Date(f).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 let cajaSubscription = null
@@ -175,10 +286,18 @@ onUnmounted(() => {
           </div>
         </div>
         
-        <button v-if="canWrite" @click="showModal = true" 
-          class="w-full md:w-auto bg-emerald-500 text-slate-950 px-10 py-5 rounded-2xl font-black uppercase text-[11px] shadow-xl shadow-emerald-500/10 hover:bg-emerald-400 transition-all">
-          Nuevo Registro
-        </button>
+        <div v-if="canWrite" class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          <button @click="showReportModal = true" 
+            class="bg-white/5 border border-white/10 text-white px-8 py-5 rounded-2xl font-black uppercase text-[11px] hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+            <span class="material-symbols-rounded text-lg">description</span>
+            Reportes PDF
+          </button>
+          
+          <button @click="showModal = true" 
+            class="bg-emerald-500 text-slate-950 px-10 py-5 rounded-2xl font-black uppercase text-[11px] shadow-xl shadow-emerald-500/10 hover:bg-emerald-400 transition-all">
+            Nuevo Registro
+          </button>
+        </div>
       </header>
 
       <div class="space-y-6">
@@ -251,6 +370,44 @@ onUnmounted(() => {
               {{ isSubmitting ? 'REGISTRANDO...' : 'Registrar en Caja' }}
             </button>
             <button @click="showModal = false" class="w-full text-slate-500 font-bold uppercase text-[9px]">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- MODAL DE REPORTES -->
+    <Transition name="fade">
+      <div v-if="showReportModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm">
+        <div class="relative w-full max-w-lg bg-slate-950 border border-white/10 rounded-[3rem] p-10 shadow-2xl">
+          <header class="mb-8">
+            <p class="text-emerald-500 text-[9px] font-black uppercase tracking-[0.4em] mb-2">Generar</p>
+            <h3 class="text-3xl font-black italic uppercase text-white">Reporte <span class="text-emerald-500">Financiero</span></h3>
+          </header>
+          
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <label class="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-2">Fecha de Inicio</label>
+              <input v-model="reportRange.start" type="date" class="w-full bg-white/5 border border-white/10 rounded-2xl py-5 px-6 text-white outline-none focus:border-emerald-500 transition-all font-bold" />
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-2">Fecha de Fin</label>
+              <input v-model="reportRange.end" type="date" class="w-full bg-white/5 border border-white/10 rounded-2xl py-5 px-6 text-white outline-none focus:border-emerald-500 transition-all font-bold" />
+            </div>
+
+            <div class="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 flex items-start gap-4">
+               <span class="material-symbols-rounded text-emerald-500">info</span>
+               <p class="text-[10px] text-slate-400 leading-relaxed font-medium">
+                 El PDF incluirá todos los movimientos, montos, tipos y descripciones registradas en el periodo seleccionado.
+               </p>
+            </div>
+
+            <button @click="generarReportePDF" :disabled="isGenerating"
+              class="w-full bg-emerald-500 text-slate-950 py-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-lg disabled:opacity-20 transition-all flex justify-center items-center gap-2">
+              <span v-if="isGenerating" class="animate-spin w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full block"></span>
+              {{ isGenerating ? 'GENERANDO ARCHIVO...' : 'Descargar Reporte PDF' }}
+            </button>
+            <button @click="showReportModal = false" class="w-full text-slate-500 font-bold uppercase text-[9px]">Cerrar</button>
           </div>
         </div>
       </div>
