@@ -131,39 +131,24 @@ const handleLogout = async () => {
 
 
 
-      <div class="p-4 border-t border-white/5 bg-slate-950/50">
-
+      <div class="p-4 pb-12 md:pb-6 border-t border-white/5 bg-slate-950/50">
         <div v-if="isSidebarOpen" class="mb-4 p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-
           <div class="flex items-center gap-3">
-
             <div class="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-emerald-500/20 flex-shrink-0">
-
               {{ userName.charAt(0).toUpperCase() }}
-
             </div>
 
             <div class="min-w-0">
-
               <p class="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em] leading-none mb-1">
-
                 {{ userRol }}
-
               </p>
 
               <p class="text-xs font-bold text-white truncate leading-none italic uppercase">
-
                 {{ userName }}
-
               </p>
-
             </div>
-
           </div>
-
         </div>
-
-
 
         <router-link to="/perfil" class="w-full flex items-center gap-4 p-3 mb-2 rounded-xl transition-all duration-300 group text-slate-400 hover:text-emerald-400 bg-slate-900/50 hover:bg-slate-800 border border-transparent hover:border-emerald-500/20" :class="{ 'justify-center': !isSidebarOpen }">
           <span class="material-symbols-rounded text-xl group-hover:rotate-12 transition-transform">manage_accounts</span>
@@ -178,14 +163,13 @@ const handleLogout = async () => {
           <span class="material-symbols-rounded text-xl group-hover:rotate-12 transition-transform">logout</span>
           <span v-if="isSidebarOpen" class="text-[10px] font-black uppercase tracking-[0.3em]">Cerrar Sesión</span>
         </button>
-
       </div>
 
     </aside>
 
 
 
-    <main class="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+    <main class="flex-1 flex flex-col h-[100dvh] overflow-hidden min-w-0">
 
       <header class="top-header">
 

@@ -67,7 +67,7 @@ const handleCambio = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen pb-24 p-4 md:p-10 bg-[#020617] text-slate-300 font-sans">
+  <div class="min-h-[100dvh] pb-32 p-4 md:p-10 bg-[#020617] text-slate-300 font-sans">
     <div class="max-w-2xl mx-auto space-y-10">
       
       <header class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-white/5 pb-8">

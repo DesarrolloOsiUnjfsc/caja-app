@@ -440,7 +440,7 @@ onUnmounted(() => {
 @reference "../assets/main.css";
 
 .dash-wrapper {
-  @apply p-6 lg:p-10 min-h-screen;
+  @apply p-6 lg:p-10 min-h-[100dvh] pb-32;
 }
 
 /* ROL BADGE */

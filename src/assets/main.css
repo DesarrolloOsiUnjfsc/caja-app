@@ -31,8 +31,8 @@
 /* 2. CAPA DE COMPONENTES DE TAILWIND */
 @layer components {
   .sidebar-container {
-    @apply bg-slate-900/60 backdrop-blur-2xl border-r border-white/5 flex flex-col h-screen transition-all duration-300 z-50;
-    /* ↑ h-screen en lugar de h-full si el aside es fixed */
+    @apply bg-slate-900/60 backdrop-blur-2xl border-r border-white/5 flex flex-col h-[100dvh] transition-all duration-300 z-50;
+    /* ↑ h-[100dvh] para que en iOS el safari no oculte el botón de cerrar sesión */
   }
 
   .logo-area {

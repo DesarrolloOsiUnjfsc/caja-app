@@ -273,7 +273,7 @@ onUnmounted(() => { if (realTimeSubscription) supabase.removeChannel(realTimeSub
 </script>
 
 <template>
-  <div class="min-h-screen pb-24 p-4 md:p-10 bg-[#020617] text-slate-300">
+  <div class="min-h-[100dvh] pb-32 p-4 md:p-10 bg-[#020617] text-slate-300">
     
     <Transition name="fade">
       <div v-if="isSubmitting" class="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md">
